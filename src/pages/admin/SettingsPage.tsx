@@ -1,8 +1,23 @@
-import { Check } from 'lucide-react';
+import { useState } from 'react';
+import { Check, User, Lock } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { toast } from '@/components/ui/sonner';
 import { useThemeStore } from '@/store/useThemeStore';
+import { useAuthStore } from '@/store/useAuthStore';
 import { getThemesByType, type ThemeName } from '@/config/themes';
 import { cn } from '@/lib/utils';
+import {
+  profileUpdateSchema,
+  passwordChangeSchema,
+  type ProfileUpdateFormData,
+  type PasswordChangeFormData,
+} from '@/schemas/profileSchema';
+import { profileApi } from '@/api/hooks/useProfile';
 
 // Theme preview colors based on theme name
 const themeColors: Record<string, { bg: string; primary: string; secondary: string; accent: string }> = {
@@ -69,14 +84,181 @@ function ThemeCard({
 
 export function SettingsPage() {
   const { theme, setTheme } = useThemeStore();
+  const { user, updateUser } = useAuthStore();
   const lightThemes = getThemesByType('light');
   const darkThemes = getThemesByType('dark');
+
+  // Profile states
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  // Profile update form
+  const profileForm = useForm<ProfileUpdateFormData>({
+    resolver: zodResolver(profileUpdateSchema),
+    defaultValues: {
+      name: user?.name || '',
+      email: user?.email || '',
+    },
+  });
+
+  // Password change form
+  const passwordForm = useForm<PasswordChangeFormData>({
+    resolver: zodResolver(passwordChangeSchema),
+    defaultValues: {
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    },
+  });
+
+  const handleProfileUpdate = async (data: ProfileUpdateFormData) => {
+    setIsUpdatingProfile(true);
+    try {
+      const response = await profileApi.updateProfile(data);
+      if (response.data) {
+        updateUser(response.data);
+      }
+      toast.success('Profile updated successfully!');
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'Failed to update profile');
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
+
+  const handlePasswordChange = async (data: PasswordChangeFormData) => {
+    setIsChangingPassword(true);
+    try {
+      await profileApi.changePassword(data);
+      toast.success('Password changed successfully!');
+      passwordForm.reset();
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'Failed to change password');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Settings</h1>
-        <p className="text-muted-foreground">Customize your dashboard appearance</p>
+        <p className="text-muted-foreground">Manage your account and customize your dashboard</p>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Profile Information */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              <CardTitle>Profile Information</CardTitle>
+            </div>
+            <CardDescription>Update your name and email address</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={profileForm.handleSubmit(handleProfileUpdate)} className="space-y-4">
+
+              <div className="space-y-2">
+                <Label htmlFor="name">Name</Label>
+                <Input
+                  id="name"
+                  {...profileForm.register('name')}
+                  placeholder="Your name"
+                />
+                {profileForm.formState.errors.name && (
+                  <p className="text-sm text-destructive">{profileForm.formState.errors.name.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  {...profileForm.register('email')}
+                  placeholder="your@email.com"
+                />
+                {profileForm.formState.errors.email && (
+                  <p className="text-sm text-destructive">{profileForm.formState.errors.email.message}</p>
+                )}
+              </div>
+
+              {user?.role && (
+                <div className="space-y-2">
+                  <Label>Role</Label>
+                  <div className="rounded-md bg-muted px-3 py-2 text-sm capitalize">
+                    {user.role}
+                  </div>
+                </div>
+              )}
+
+              <Button type="submit" disabled={isUpdatingProfile}>
+                {isUpdatingProfile ? 'Updating...' : 'Update Profile'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Change Password */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Lock className="h-5 w-5" />
+              <CardTitle>Change Password</CardTitle>
+            </div>
+            <CardDescription>Update your password to keep your account secure</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={passwordForm.handleSubmit(handlePasswordChange)} className="space-y-4">
+
+              <div className="space-y-2">
+                <Label htmlFor="currentPassword">Current Password</Label>
+                <Input
+                  id="currentPassword"
+                  type="password"
+                  {...passwordForm.register('currentPassword')}
+                  placeholder="••••••••"
+                />
+                {passwordForm.formState.errors.currentPassword && (
+                  <p className="text-sm text-destructive">{passwordForm.formState.errors.currentPassword.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="newPassword">New Password</Label>
+                <Input
+                  id="newPassword"
+                  type="password"
+                  {...passwordForm.register('newPassword')}
+                  placeholder="••••••••"
+                />
+                {passwordForm.formState.errors.newPassword && (
+                  <p className="text-sm text-destructive">{passwordForm.formState.errors.newPassword.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  {...passwordForm.register('confirmPassword')}
+                  placeholder="••••••••"
+                />
+                {passwordForm.formState.errors.confirmPassword && (
+                  <p className="text-sm text-destructive">{passwordForm.formState.errors.confirmPassword.message}</p>
+                )}
+              </div>
+
+              <Button type="submit" disabled={isChangingPassword}>
+                {isChangingPassword ? 'Changing...' : 'Change Password'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Theme Selection */}

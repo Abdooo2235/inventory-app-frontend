@@ -1,31 +1,28 @@
 import { useState } from 'react';
 import { type ColumnDef } from '@tanstack/react-table';
-import { Plus, Trash2, Users as UsersIcon } from 'lucide-react';
+import { Plus, Trash2, Users as UsersIcon, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SearchInput, DataTable, ConfirmDialog, EmptyState } from '@/components/common';
 import { UserForm } from '@/components/users/UserForm';
+import { toast } from '@/components/ui/sonner';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useUsers, userApi } from '@/api/hooks/useUsers';
 import type { User } from '@/types';
 import type { UserFormData } from '@/schemas/userSchema';
-
-// Mock data - TODO: Replace with SWR hook
-const mockUsers: User[] = [
-  { id: '1', name: 'John Admin', email: 'admin@example.com', role: 'admin', createdAt: '2024-01-15', updatedAt: '' },
-  { id: '2', name: 'Jane User', email: 'jane@example.com', role: 'user', createdAt: '2024-02-20', updatedAt: '' },
-  { id: '3', name: 'Bob User', email: 'bob@example.com', role: 'user', createdAt: '2024-03-10', updatedAt: '' },
-  { id: '4', name: 'Alice User', email: 'alice@example.com', role: 'user', createdAt: '2024-04-05', updatedAt: '' },
-];
 
 export function UsersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const debouncedSearch = useDebounce(searchTerm, 300);
+
+  // Fetch real data from API
+  const { users, isLoading, mutate: mutateUsers } = useUsers(debouncedSearch);
 
   const columns: ColumnDef<User>[] = [
     {
@@ -53,11 +50,14 @@ export function UsersPage() {
     {
       accessorKey: 'createdAt',
       header: 'Created',
-      cell: ({ row }) => (
-        <span className="text-muted-foreground">
-          {new Date(row.getValue('createdAt')).toLocaleDateString()}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const date = row.getValue('createdAt') as string;
+        return (
+          <span className="text-muted-foreground">
+            {date ? new Date(date).toLocaleDateString() : 'N/A'}
+          </span>
+        );
+      },
     },
     {
       id: 'actions',
@@ -86,28 +86,44 @@ export function UsersPage() {
   };
 
   const handleFormSubmit = async (data: UserFormData) => {
-    setIsLoading(true);
+    setIsSubmitting(true);
     try {
-      // TODO: Call API via userApi.create
-      console.log('Creating user:', data);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await userApi.create(data);
+      toast.success('User created successfully!');
+      mutateUsers();
+      setIsFormOpen(false);
+    } catch (error) {
+      console.error('Failed to create user:', error);
+      toast.error('Failed to create user');
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
     if (!selectedUser) return;
-    setIsLoading(true);
+    setIsSubmitting(true);
     try {
-      // TODO: Call API via userApi.delete
-      console.log('Deleting:', selectedUser.id);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await userApi.delete(selectedUser.id);
+      toast.success(`"${selectedUser.name}" deleted successfully!`);
+      mutateUsers();
       setIsDeleteOpen(false);
+      setSelectedUser(null);
+    } catch (error) {
+      console.error('Failed to delete user:', error);
+      toast.error('Failed to delete user');
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -125,7 +141,7 @@ export function UsersPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>All Users</CardTitle>
+            <CardTitle>All Users ({users.length})</CardTitle>
             <SearchInput
               value={searchTerm}
               onChange={setSearchTerm}
@@ -135,8 +151,8 @@ export function UsersPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {mockUsers.length > 0 ? (
-            <DataTable columns={columns} data={mockUsers} searchValue={debouncedSearch} />
+          {users.length > 0 ? (
+            <DataTable columns={columns} data={users} searchValue={debouncedSearch} />
           ) : (
             <EmptyState
               icon={<UsersIcon className="h-12 w-12" />}
@@ -157,7 +173,7 @@ export function UsersPage() {
         open={isFormOpen}
         onOpenChange={setIsFormOpen}
         onSubmit={handleFormSubmit}
-        isLoading={isLoading}
+        isLoading={isSubmitting}
       />
 
       <ConfirmDialog
@@ -168,7 +184,7 @@ export function UsersPage() {
         confirmText="Delete"
         variant="destructive"
         onConfirm={handleDelete}
-        isLoading={isLoading}
+        isLoading={isSubmitting}
       />
     </div>
   );

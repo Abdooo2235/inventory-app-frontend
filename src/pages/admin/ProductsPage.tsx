@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { type ColumnDef } from '@tanstack/react-table';
-import { Plus, Edit, Trash2, MoreHorizontal } from 'lucide-react';
+import { Plus, Edit, Trash2, MoreHorizontal, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,31 +12,27 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { SearchInput, DataTable, ConfirmDialog } from '@/components/common';
 import { ProductForm } from '@/components/products/ProductForm';
+import { toast } from '@/components/ui/sonner';
 import { useDebounce } from '@/hooks/useDebounce';
-import type { Product, Category } from '@/types';
+import { useProducts, productApi } from '@/api/hooks/useProducts';
+import { useCategories } from '@/api/hooks/useCategories';
+import { useSuppliers } from '@/api/hooks/useSuppliers';
+import type { Product } from '@/types';
 import type { ProductFormData } from '@/schemas/productSchema';
-
-// Mock data - TODO: Replace with SWR hooks
-const mockProducts: Product[] = [
-  { id: '1', name: 'Laptop Pro', sku: 'LAP-001', price: 999.99, quantity: 25, categoryId: '1', createdAt: '', updatedAt: '' },
-  { id: '2', name: 'Wireless Keyboard', sku: 'KEY-001', price: 79.99, quantity: 50, categoryId: '2', createdAt: '', updatedAt: '' },
-  { id: '3', name: 'Gaming Mouse', sku: 'MOU-001', price: 29.99, quantity: 5, categoryId: '2', createdAt: '', updatedAt: '' },
-  { id: '4', name: '4K Monitor', sku: 'MON-001', price: 299.99, quantity: 15, categoryId: '1', createdAt: '', updatedAt: '' },
-];
-
-const mockCategories: Category[] = [
-  { id: '1', name: 'Electronics', createdAt: '', updatedAt: '' },
-  { id: '2', name: 'Accessories', createdAt: '', updatedAt: '' },
-];
 
 export function ProductsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const debouncedSearch = useDebounce(searchTerm, 300);
+
+  // Fetch real data from API
+  const { products, isLoading: productsLoading, mutate: mutateProducts } = useProducts({ search: debouncedSearch });
+  const { categories, isLoading: categoriesLoading } = useCategories();
+  const { suppliers, isLoading: suppliersLoading } = useSuppliers();
 
   const columns: ColumnDef<Product>[] = [
     {
@@ -50,11 +46,26 @@ export function ProductsPage() {
       cell: ({ row }) => <span className="text-muted-foreground">{row.getValue('sku')}</span>,
     },
     {
-      accessorKey: 'categoryId',
+      accessorKey: 'category',
       header: 'Category',
       cell: ({ row }) => {
-        const category = mockCategories.find(c => c.id === row.getValue('categoryId'));
-        return <Badge variant="secondary">{category?.name || 'N/A'}</Badge>;
+        const product = row.original;
+        // Handle both category object and categoryId
+        const categoryName = product.category?.name ||
+          categories.find(c => c.id === product.categoryId)?.name ||
+          'N/A';
+        return <Badge variant="secondary">{categoryName}</Badge>;
+      },
+    },
+    {
+      accessorKey: 'supplier',
+      header: 'Supplier',
+      cell: ({ row }) => {
+        const product = row.original;
+        const supplierName = product.supplier?.name ||
+          suppliers.find(s => s.id === product.supplierId)?.name ||
+          '-';
+        return <span className="text-sm text-muted-foreground">{supplierName}</span>;
       },
     },
     {
@@ -120,28 +131,49 @@ export function ProductsPage() {
   };
 
   const handleFormSubmit = async (data: ProductFormData) => {
-    setIsLoading(true);
+    setIsSubmitting(true);
     try {
-      // TODO: Call API via productApi.create or productApi.update
-      console.log('Submitting:', data);
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API
+      if (selectedProduct) {
+        await productApi.update(selectedProduct.id, data);
+        toast.success('Product updated successfully!');
+      } else {
+        await productApi.create(data);
+        toast.success('Product created successfully!');
+      }
+      mutateProducts();
+      setIsFormOpen(false);
+    } catch (error) {
+      console.error('Failed to save product:', error);
+      toast.error('Failed to save product');
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
     if (!selectedProduct) return;
-    setIsLoading(true);
+    setIsSubmitting(true);
     try {
-      // TODO: Call API via productApi.delete
-      console.log('Deleting:', selectedProduct.id);
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API
+      await productApi.delete(selectedProduct.id);
+      toast.success(`"${selectedProduct.name}" deleted successfully!`);
+      mutateProducts();
       setIsDeleteOpen(false);
+      setSelectedProduct(null);
+    } catch (error) {
+      console.error('Failed to delete product:', error);
+      toast.error('Failed to delete product');
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
+
+  if (productsLoading || categoriesLoading || suppliersLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -159,7 +191,7 @@ export function ProductsPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>All Products</CardTitle>
+            <CardTitle>All Products ({products.length})</CardTitle>
             <SearchInput
               value={searchTerm}
               onChange={setSearchTerm}
@@ -169,7 +201,7 @@ export function ProductsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <DataTable columns={columns} data={mockProducts} searchValue={debouncedSearch} />
+          <DataTable columns={columns} data={products} searchValue={debouncedSearch} />
         </CardContent>
       </Card>
 
@@ -177,9 +209,9 @@ export function ProductsPage() {
         open={isFormOpen}
         onOpenChange={setIsFormOpen}
         product={selectedProduct}
-        categories={mockCategories}
+        categories={categories}
         onSubmit={handleFormSubmit}
-        isLoading={isLoading}
+        isLoading={isSubmitting}
       />
 
       <ConfirmDialog
@@ -190,7 +222,7 @@ export function ProductsPage() {
         confirmText="Delete"
         variant="destructive"
         onConfirm={handleDelete}
-        isLoading={isLoading}
+        isLoading={isSubmitting}
       />
     </div>
   );
