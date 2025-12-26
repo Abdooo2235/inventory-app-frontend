@@ -8,6 +8,7 @@ export const productSchema = z.object({
   price: z.number().positive('Price must be positive'),
   quantity: z.number().int('Quantity must be whole number').min(0, 'Quantity cannot be negative'),
   categoryId: z.string().min(1, 'Category is required'),
+  supplierId: z.string().optional(),
   imageUrl: z.string().url('Invalid URL').optional().or(z.literal('')),
 });
 

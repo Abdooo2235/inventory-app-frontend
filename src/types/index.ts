@@ -19,6 +19,17 @@ export interface Category {
   updatedAt: string;
 }
 
+export interface Supplier {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  address?: string;
+  productsCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -28,6 +39,8 @@ export interface Product {
   quantity: number;
   categoryId: string;
   category?: Category;
+  supplierId?: string;
+  supplier?: Supplier;
   imageUrl?: string;
   thumbUrl?: string;
   createdAt: string;
@@ -49,6 +62,8 @@ export interface Order {
   user?: User;
   items: OrderItem[];
   totalPrice: number;
+  totalAmount?: number;
+  notes?: string;
   status: 'pending' | 'approved' | 'rejected' | 'completed';
   statusLabel: string;
   statusColor: string;
