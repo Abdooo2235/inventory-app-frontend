@@ -26,5 +26,4 @@ dist-ssr
 # Markdown files
 *.md
 !README.md
-# Validations
 implementation_plan.md.resolved
