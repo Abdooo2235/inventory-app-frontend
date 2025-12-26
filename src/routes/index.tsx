@@ -3,6 +3,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 
 // Lazy load pages for code splitting
 import { lazy, Suspense } from 'react';
+import { Spinner } from '@/components/ui/spinner';
 
 // Auth pages
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
@@ -11,8 +12,11 @@ const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
 const AdminDashboardPage = lazy(() => import('@/pages/admin/DashboardPage'));
 const AdminProductsPage = lazy(() => import('@/pages/admin/ProductsPage'));
 const AdminCategoriesPage = lazy(() => import('@/pages/admin/CategoriesPage'));
+const AdminOrdersPage = lazy(() => import('@/pages/admin/OrdersPage'));
+const AdminSuppliersPage = lazy(() => import('@/pages/admin/SuppliersPage'));
 const AdminUsersPage = lazy(() => import('@/pages/admin/UsersPage'));
 const AdminSettingsPage = lazy(() => import('@/pages/admin/SettingsPage'));
+
 
 // User pages
 const UserProductsPage = lazy(() => import('@/pages/user/ProductsPage'));
@@ -26,7 +30,7 @@ const DashboardLayout = lazy(() => import('@/components/layout/DashboardLayout')
 function PageLoader() {
   return (
     <div className="flex h-screen w-full items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      <Spinner size="lg" className="text-primary" />
     </div>
   );
 }
@@ -98,6 +102,14 @@ export const router = createBrowserRouter([
           {
             path: 'categories',
             element: <AdminCategoriesPage />,
+          },
+          {
+            path: 'orders',
+            element: <AdminOrdersPage />,
+          },
+          {
+            path: 'suppliers',
+            element: <AdminSuppliersPage />,
           },
           {
             path: 'users',
