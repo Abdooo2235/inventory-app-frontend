@@ -4,7 +4,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'user';
+  role: "admin" | "user";
   avatar?: string;
   createdAt: string;
   updatedAt: string;
@@ -64,7 +64,8 @@ export interface Order {
   totalPrice: number;
   totalAmount?: number;
   notes?: string;
-  status: 'pending' | 'approved' | 'rejected' | 'completed';
+  address?: string; // Added address
+  status: "pending" | "approved" | "rejected" | "completed";
   statusLabel: string;
   statusColor: string;
   orderDate: string;

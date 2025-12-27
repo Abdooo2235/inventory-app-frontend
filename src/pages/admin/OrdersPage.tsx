@@ -118,6 +118,18 @@ export function OrdersPage() {
       },
     },
     {
+      accessorKey: 'address',
+      header: 'Address',
+      cell: ({ row }) => {
+        const address = row.original.address;
+        return (
+          <span className="text-sm truncate max-w-[200px] block" title={address}>
+            {address || '-'}
+          </span>
+        );
+      },
+    },
+    {
       accessorKey: 'items',
       header: 'Items',
       cell: ({ row }) => {
@@ -254,8 +266,20 @@ export function OrdersPage() {
               {/* Customer Info */}
               <div className="rounded-lg border p-4">
                 <h4 className="font-semibold mb-2">Customer Information</h4>
-                <p className="text-sm"><strong>Name:</strong> {selectedOrder.user?.name || 'N/A'}</p>
-                <p className="text-sm"><strong>Email:</strong> {selectedOrder.user?.email || 'N/A'}</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium">Name</p>
+                    <p className="text-sm text-muted-foreground">{selectedOrder.user?.name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Email</p>
+                    <p className="text-sm text-muted-foreground">{selectedOrder.user?.email || 'N/A'}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-sm font-medium">Shipping Address</p>
+                    <p className="text-sm text-muted-foreground">{selectedOrder.address || 'No address provided'}</p>
+                  </div>
+                </div>
               </div>
 
               {/* Order Items */}
